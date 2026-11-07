@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this research software, please cite this repository release."
+title: "Scientific Claim Recovery: Evidence-Constrained Policy Evaluation Prototype"
+type: software
+authors:
+  - family-names: Chintalapudi
+    given-names: Sridurga
+version: 0.1.1
