@@ -32,7 +32,17 @@ def score(predictions, cases, annotations=None):
             result["human_supported_accepted_n"]=sum(a["final_support"]=="SUPPORTED" for p,a in valid)
             result["human_unsupported_accepted_n"]=sum(a["final_support"]!="SUPPORTED" for p,a in valid)
             result["human_unsupported_acceptance_rate"]=(sum(a["final_support"]!="SUPPORTED" for p,a in valid)/len(valid) if valid else None)
-            result["human_useful_coverage"]=(sum(a["final_support"]=="SUPPORTED" and a["meaning_preservation"]=="MEANINGFUL" for p,a in valid)/len(reviewed))
+            # Strict criterion: a repaired claim must be supported AND its core meaning preserved.
+            # Legacy MEANINGFUL is accepted for backward compatibility. PARTIAL is excluded.
+            result["human_useful_coverage"]=(sum(
+                a["final_support"]=="SUPPORTED" and
+                a["meaning_preservation"] in ("PRESERVED", "MEANINGFUL")
+                for p,a in valid
+            )/len(reviewed))
+            result["human_useful_coverage_definition"] = (
+                "SUPPORTED and PRESERVED (or legacy MEANINGFUL) among all reviewed cases; "
+                "PARTIAL and LOST are not counted; selected-subset diagnostic only"
+            )
         else: result["human_metrics_status"]="NOT_AVAILABLE: no independent annotations supplied"
         report[policy]=result
     return report
@@ -40,7 +50,15 @@ def score(predictions, cases, annotations=None):
 def read_annotations(path):
     with open(path,newline="") as f:
         rows=list(csv.DictReader(f))
+    valid_meaning = {"PRESERVED", "PARTIAL", "LOST", "MEANINGFUL", "NOT_APPLICABLE", "UNCLEAR", ""}
+    seen = set()
     for a in rows:
+        key = (a["case_id"], a["policy"])
+        if key in seen:
+            raise ValueError(f"Duplicate annotation for case_id/policy: {key}")
+        seen.add(key)
+        if a["meaning_preservation"] not in valid_meaning:
+            raise ValueError(f"Invalid meaning_preservation label: {a['meaning_preservation']}")
         if a["final_support"] not in ("SUPPORTED","CONTRADICTED","INSUFFICIENT","NOT_APPLICABLE"):
             raise ValueError("Invalid human final_support label")
     return rows
